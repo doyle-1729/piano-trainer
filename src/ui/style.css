@@ -1,0 +1,335 @@
+:root {
+  --bg: #14161a;
+  --panel: #1d2026;
+  --border: #2d323b;
+  --text: #e8eaed;
+  --muted: #9aa2ad;
+  --accent: #4da3ff;
+  --green: #3ecf6e;
+  --red: #ff5c5c;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+#app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 100vh;
+}
+
+header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+header h1 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.status {
+  font-size: 13px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.status.ok { color: var(--green); border-color: var(--green); }
+.status.bad { color: var(--red); border-color: var(--red); }
+
+.status.wrong-note {
+  color: #fff;
+  background: var(--red);
+  border-color: var(--red);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.banner {
+  background: var(--panel);
+  border: 1px solid var(--red);
+  border-radius: 8px;
+  padding: 14px 16px;
+  line-height: 1.5;
+}
+
+.controls {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 16px;
+}
+
+.controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.controls select,
+.controls button {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 14px;
+}
+
+.controls select { min-width: 180px; }
+.controls button { cursor: pointer; }
+.controls button:hover { border-color: var(--accent); }
+
+.file-row {
+  display: flex;
+  gap: 8px;
+}
+
+.file-row select { min-width: 140px; }
+
+/* Score area: white card so OSMD's engraving is readable on the dark page. */
+#score-wrap {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 8px 16px;
+  min-height: 320px;
+  flex: 1;
+  position: relative;
+}
+
+#score-wrap.dropping {
+  outline: 3px dashed var(--accent);
+  outline-offset: -8px;
+}
+
+#score-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #667;
+  font-size: 15px;
+  line-height: 1.6;
+  padding: 24px;
+}
+
+#score-empty[hidden] { display: none; }
+
+.monitor {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0;
+}
+
+.monitor summary {
+  cursor: pointer;
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--muted);
+  user-select: none;
+}
+
+.monitor[open] summary { border-bottom: 1px solid var(--border); }
+
+.monitor .now-playing,
+.monitor .hint { margin: 8px 16px; }
+
+.now-playing {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  flex-wrap: wrap;
+}
+
+.now-playing .label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.note-chip {
+  background: var(--accent);
+  color: #0b1b2b;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 15px;
+}
+
+.pedal {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.pedal.down { color: var(--accent); }
+
+.hint {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.log {
+  border-top: 1px solid var(--border);
+  padding: 8px 0;
+  height: 200px;
+  overflow-y: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+}
+
+.log-row {
+  display: flex;
+  gap: 12px;
+  padding: 2px 16px;
+}
+
+.log-time { color: var(--muted); }
+
+/* ---------- loop ---------- */
+
+.status.loop-chip { color: var(--muted); }
+.status.loop-chip.on { color: var(--accent); border-color: var(--accent); }
+
+#loop-overlay {
+  position: absolute;
+  top: 8px;
+  left: 16px;
+  right: 16px;
+  bottom: 8px;
+  pointer-events: none;
+}
+
+.loop-rect {
+  position: absolute;
+  background: rgba(77, 163, 255, 0.10);
+  border: 1px dashed rgba(77, 163, 255, 0.45);
+  border-radius: 3px;
+}
+
+.loop-rect.on {
+  background: rgba(77, 163, 255, 0.18);
+  border-style: solid;
+}
+
+/* ---------- settings ---------- */
+
+.settings {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.settings summary {
+  cursor: pointer;
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--muted);
+  user-select: none;
+}
+
+.settings-row {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  padding: 4px 16px 14px;
+}
+
+.settings-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.settings-row input[type="number"] {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  width: 90px;
+}
+
+.inline-check {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 6px !important;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.inline-check.disabled { opacity: 0.45; }
+.settings-check { padding-bottom: 6px; }
+
+/* ---------- on-screen keyboard ---------- */
+
+#keystrip-wrap {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 16px;
+}
+
+.keystrip {
+  position: relative;
+  height: 64px;
+}
+
+.key {
+  position: absolute;
+  box-sizing: border-box;
+  border-radius: 0 0 3px 3px;
+}
+
+.key.white {
+  top: 0;
+  height: 100%;
+  background: #f4f5f7;
+  border: 1px solid #555;
+  z-index: 1;
+}
+
+.key.black {
+  top: 0;
+  height: 60%;
+  background: #1a1c20;
+  border: 1px solid #000;
+  z-index: 2;
+}
+
+.key.expected.white { background: #bfe3cb; }
+.key.expected.black { background: #2f7a48; }
+.key.pressed.white { background: var(--accent); }
+.key.pressed.black { background: var(--accent); }
+.key.wrong.white, .key.wrong.black { background: var(--red); }
+.log-on span:last-child { color: var(--green); }
+.log-off span:last-child { color: var(--muted); }
+.log-control span:last-child { color: var(--accent); }

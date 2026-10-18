@@ -1,0 +1,22 @@
+{
+  "name": "piano-trainer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sheet-music follow-along piano trainer: engraved notation that waits for the right keys over USB MIDI.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "opensheetmusicdisplay": "^2.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^4.1.11"
+  }
+}
