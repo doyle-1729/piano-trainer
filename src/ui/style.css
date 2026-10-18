@@ -215,6 +215,17 @@ header h1 {
 .status.loop-chip { color: var(--muted); }
 .status.loop-chip.on { color: var(--accent); border-color: var(--accent); }
 
+.loop-clear {
+  font-size: 13px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.loop-clear:hover { color: var(--red); border-color: var(--red); }
+
 #loop-overlay {
   position: absolute;
   top: 8px;
@@ -224,16 +235,31 @@ header h1 {
   pointer-events: none;
 }
 
+/* The tint is strongest over the staff lines (vertical middle of the measure
+   box) and fades out gradually above and below, so nothing hard-edged sits on
+   the notation. Pending selections keep a faint dashed outline. */
 .loop-rect {
   position: absolute;
-  background: rgba(77, 163, 255, 0.10);
-  border: 1px dashed rgba(77, 163, 255, 0.45);
+  background: linear-gradient(
+    to bottom,
+    rgba(77, 163, 255, 0) 0%,
+    rgba(77, 163, 255, 0.10) 35%,
+    rgba(77, 163, 255, 0.10) 65%,
+    rgba(77, 163, 255, 0) 100%
+  );
+  border: 1px dashed rgba(77, 163, 255, 0.18);
   border-radius: 3px;
 }
 
 .loop-rect.on {
-  background: rgba(77, 163, 255, 0.18);
-  border-style: solid;
+  background: linear-gradient(
+    to bottom,
+    rgba(77, 163, 255, 0) 0%,
+    rgba(77, 163, 255, 0.22) 35%,
+    rgba(77, 163, 255, 0.22) 65%,
+    rgba(77, 163, 255, 0) 100%
+  );
+  border: none;
 }
 
 /* ---------- settings ---------- */

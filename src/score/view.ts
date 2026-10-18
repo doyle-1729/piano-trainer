@@ -146,21 +146,30 @@ export class ScoreView {
     return null;
   }
 
-  /** Pixel rectangles (container-relative) of all staves of measures [from..to]. */
+  /**
+   * Pixel rectangles (container-relative) of all staves of measures [from..to].
+   * Vertically centred on the staff lines (ParentStaffLine top + StaffHeight),
+   * not on the measure's bounding box — the box grows with beams/stems and
+   * would put the loop highlight off-centre.
+   */
   measureRects(from: number, to: number): MeasureRect[] {
     if (!this._loaded) return [];
     const scale = UNIT_PX * this.osmd.Zoom;
+    const pad = 3; // units above the top and below the bottom staff line
     const rects: MeasureRect[] = [];
     const measureList = this.osmd.GraphicSheet.MeasureList;
     for (let i = from; i <= to && i < measureList.length; i++) {
       for (const gm of measureList[i] ?? []) {
         if (!gm) continue;
         const box = gm.PositionAndShape;
+        const staff = gm.ParentStaffLine;
+        const staffTop = staff?.PositionAndShape.AbsolutePosition.y ?? box.AbsolutePosition.y;
+        const staffHeight = staff?.StaffHeight ?? box.Size.height;
         rects.push({
           x: box.AbsolutePosition.x * scale,
-          y: (box.AbsolutePosition.y - 1) * scale,
+          y: (staffTop - pad) * scale,
           width: box.Size.width * scale,
-          height: (box.Size.height + 2) * scale,
+          height: (staffHeight + 2 * pad) * scale,
         });
       }
     }

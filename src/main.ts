@@ -8,6 +8,7 @@ import { KeyStrip } from "./ui/keys";
 import { ScoreView } from "./score/view";
 import { buildTimeline, firstIndexAtMeasure, onsetNotes, type Hand, type Step } from "./engine/timeline";
 import { FollowSession, type FollowEvent, type HandMode } from "./engine/follow";
+import { Player } from "./playback";
 
 const KEYBOARD_ID = "__keyboard__";
 const SOURCE_KEY = "pianoTrainer.inputSource";
@@ -28,6 +29,7 @@ type Settings = {
   chordWindowMs: number;
   zoomPct: number;
   showKeys: boolean;
+  tempoPct: number;
 };
 
 const DEFAULT_SETTINGS: Settings = {
@@ -36,6 +38,7 @@ const DEFAULT_SETTINGS: Settings = {
   chordWindowMs: 150,
   zoomPct: 100,
   showKeys: false,
+  tempoPct: 100,
 };
 
 function loadSettings(): Settings {
@@ -62,6 +65,7 @@ app.innerHTML = `
     <span class="status waiting" id="position" hidden></span>
     <span class="status wrong-note" id="wrong-note" hidden></span>
     <span class="status loop-chip" id="loop-chip" hidden></span>
+    <button class="loop-clear" id="loop-clear" type="button" hidden>✕ clear loop</button>
   </header>
   <div id="banner"></div>
   <div class="controls">
@@ -74,6 +78,9 @@ app.innerHTML = `
         </select>
         <input id="file-input" type="file" accept=".musicxml,.xml,.mxl" hidden />
       </span>
+    </label>
+    <label>Playback
+      <button id="play-btn" type="button" disabled>▶ Play</button>
     </label>
     <label>Hands
       <span class="file-row">
@@ -103,6 +110,9 @@ app.innerHTML = `
       <label>Zoom <span id="zoom-value"></span>
         <input id="zoom-range" type="range" min="50" max="200" step="10" />
       </label>
+      <label>Playback tempo <span id="tempo-value"></span>
+        <input id="tempo-range" type="range" min="50" max="150" step="5" />
+      </label>
       <label class="inline-check settings-check">
         <input type="checkbox" id="keys-check" /> on-screen keyboard
       </label>
@@ -118,9 +128,11 @@ app.innerHTML = `
   </div>
   <div id="keystrip-wrap" hidden><div id="keystrip"></div></div>
   <p class="hint" id="cursor-hint" hidden>
-    Wait mode: play the highlighted notes to advance. <strong>→</strong>/<strong>←</strong> jump,
-    <strong>Home</strong> restarts. Loop: click a measure for the start, another for the end;
-    <strong>L</strong> toggles, <strong>Esc</strong> clears.
+    Wait mode: play the highlighted notes to advance. Click a measure to jump there;
+    <strong>→</strong>/<strong>←</strong> step, <strong>Home</strong> restarts,
+    <strong>Space</strong> plays/stops the score (the loop segment when one is on).
+    Loop: <strong>shift-click</strong> the start measure, shift-click the end;
+    <strong>L</strong> toggles, <strong>Esc</strong> or ✕ clears.
   </p>
   <details class="monitor">
     <summary>MIDI monitor</summary>
@@ -138,6 +150,7 @@ const statusEl = document.getElementById("status")!;
 const positionEl = document.getElementById("position")!;
 const wrongNoteEl = document.getElementById("wrong-note")!;
 const loopChipEl = document.getElementById("loop-chip")!;
+const loopClearBtn = document.getElementById("loop-clear") as HTMLButtonElement;
 const bannerEl = document.getElementById("banner")!;
 const inputSelect = document.getElementById("input-select") as HTMLSelectElement;
 const outputSelect = document.getElementById("output-select") as HTMLSelectElement;
@@ -147,6 +160,9 @@ const autoplayCheck = document.getElementById("autoplay-check") as HTMLInputElem
 const chordWindowInput = document.getElementById("chord-window") as HTMLInputElement;
 const zoomRange = document.getElementById("zoom-range") as HTMLInputElement;
 const zoomValue = document.getElementById("zoom-value")!;
+const tempoRange = document.getElementById("tempo-range") as HTMLInputElement;
+const tempoValue = document.getElementById("tempo-value")!;
+const playBtn = document.getElementById("play-btn") as HTMLButtonElement;
 const keysCheck = document.getElementById("keys-check") as HTMLInputElement;
 const openBtn = document.getElementById("open-btn") as HTMLButtonElement;
 const fileInput = document.getElementById("file-input") as HTMLInputElement;
@@ -166,6 +182,54 @@ const keyStrip = new KeyStrip(document.getElementById("keystrip")!);
 const score = new ScoreView(document.getElementById("score")!);
 let midiManager: MidiManager | null = null;
 const midiOut = new MidiOut(() => midiManager?.outputPort ?? null);
+
+// Demo playback of the score / loop segment. The player is the only consumer
+// of MidiOut besides auto-play; it is never fed from MIDI input.
+const player = new Player(midiOut, wholeNoteMs);
+player.onStep = (i) => {
+  const step = timeline[i];
+  if (!step) return;
+  score.moveToScoreStep(step.scoreStep);
+  positionEl.hidden = false;
+  positionEl.textContent = `measure ${step.measureIndex + 1} · playing…`;
+};
+player.onStop = (i) => {
+  playBtn.textContent = "▶ Play";
+  // Sync wait mode to wherever playback got to.
+  if (session && timeline.length > 0) {
+    apply(session.seek(Math.min(i, timeline.length - 1)), false);
+  }
+};
+
+function lastIndexAtMeasure(steps: Step[], measureIndex: number): number {
+  for (let i = steps.length - 1; i >= 0; i--) {
+    if (steps[i]!.measureIndex <= measureIndex) return i;
+  }
+  return steps.length - 1;
+}
+
+function togglePlay(): void {
+  if (!session || timeline.length === 0) return;
+  if (player.playing) {
+    player.stop();
+    return;
+  }
+  midiOut.allOff();
+  let from: number;
+  let to = timeline.length - 1;
+  let wrap = false;
+  if (loop.active && loop.start !== null && loop.end !== null) {
+    from = firstIndexAtMeasure(timeline, loop.start);
+    to = lastIndexAtMeasure(timeline, loop.end);
+    wrap = true;
+  } else {
+    from = session.step && session.step.index < timeline.length ? session.step.index : 0;
+  }
+  playBtn.textContent = "◼ Stop";
+  player.start(timeline, from, to, wrap);
+}
+
+playBtn.addEventListener("click", togglePlay);
 let session: FollowSession | null = null;
 let timeline: Step[] = [];
 let wrongFlashTimer: number | undefined;
@@ -179,7 +243,7 @@ function otherHand(mode: HandMode): Hand | null {
 }
 
 function wholeNoteMs(): number {
-  return (4 * 60_000) / score.tempoBpm();
+  return ((4 * 60_000) / score.tempoBpm()) * (100 / settings.tempoPct);
 }
 
 function updatePosition(): void {
@@ -249,6 +313,7 @@ function apply(events: FollowEvent[], live: boolean): void {
 
 function restart(): void {
   if (!session) return;
+  player.stop();
   midiOut.allOff();
   const target = loop.active && loop.start !== null ? firstIndexAtMeasure(timeline, loop.start) : 0;
   apply(session.seek(target), true);
@@ -257,6 +322,7 @@ function restart(): void {
 // ---------- looping ----------
 
 function updateLoopUi(): void {
+  loopClearBtn.hidden = loop.start === null;
   if (loop.start === null) {
     loopChipEl.hidden = true;
     loopOverlay.replaceChildren();
@@ -265,7 +331,7 @@ function updateLoopUi(): void {
   loopChipEl.hidden = false;
   const startLabel = `m${loop.start + 1}`;
   if (loop.end === null) {
-    loopChipEl.textContent = `loop: ${startLabel} → click the end measure`;
+    loopChipEl.textContent = `loop: ${startLabel} → shift-click the end measure`;
   } else {
     loopChipEl.textContent = `loop: ${startLabel}–m${loop.end + 1} ${loop.active ? "(on)" : "(off — L)"}`;
   }
@@ -292,10 +358,21 @@ function clearLoop(): void {
   updateLoopUi();
 }
 
+loopClearBtn.addEventListener("click", clearLoop);
+
 scoreWrap.addEventListener("click", (e) => {
   if (!session) return;
   const measure = score.measureAtPoint(e.clientX, e.clientY);
   if (measure === null) return;
+
+  if (!e.shiftKey) {
+    // Plain click: jump the cursor to that measure (manual navigation, like ←/→).
+    player.stop();
+    apply(session.seek(firstIndexAtMeasure(timeline, measure)), false);
+    return;
+  }
+
+  // Shift-click: loop selection — start measure first, then the end measure.
   if (loop.start === null || loop.end !== null) {
     loop.start = measure;
     loop.end = null;
@@ -318,6 +395,7 @@ window.addEventListener("resize", () => {
 // ---------- score loading ----------
 
 async function loadScore(content: string | Blob, label: string): Promise<void> {
+  player.stop();
   midiOut.allOff();
   try {
     await score.load(content);
@@ -338,6 +416,7 @@ async function loadScore(content: string | Blob, label: string): Promise<void> {
     chordWindowMs: settings.chordWindowMs,
   });
   log.add(`loaded score: ${score.title || label} (${timeline.length} steps, ${score.tempoBpm()} bpm)`, "info");
+  playBtn.disabled = false;
   apply(session.begin(), true);
 }
 
@@ -383,13 +462,17 @@ window.addEventListener("keydown", (e) => {
   const target = e.target as HTMLElement | null;
   if (target && /^(input|select|textarea)$/i.test(target.tagName)) return;
   if (e.key === "ArrowRight") {
+    player.stop();
     const next = session.step ? session.step.index + 1 : timeline.length;
     apply(session.seek(Math.min(next, timeline.length)), false);
   } else if (e.key === "ArrowLeft") {
+    player.stop();
     const prev = session.step ? session.step.index - 1 : timeline.length - 1;
     if (prev >= 0) apply(session.seek(prev), false);
   } else if (e.key === "Home") {
     restart();
+  } else if (e.key === " ") {
+    togglePlay();
   } else if (e.key === "l" || e.key === "L") {
     if (loop.start !== null && loop.end !== null) {
       loop.active = !loop.active;
@@ -415,6 +498,8 @@ zoomRange.value = String(settings.zoomPct);
 zoomValue.textContent = `${settings.zoomPct}%`;
 keysCheck.checked = settings.showKeys;
 keystripWrap.hidden = !settings.showKeys;
+tempoRange.value = String(settings.tempoPct);
+tempoValue.textContent = `${settings.tempoPct}%`;
 score.setZoom(settings.zoomPct / 100);
 applyHandModeUi();
 
@@ -422,6 +507,7 @@ handsSelect.onchange = () => {
   settings.hands = handsSelect.value as HandMode;
   saveSettings();
   applyHandModeUi();
+  player.stop();
   midiOut.allOff();
   if (session) apply(session.setHands(settings.hands), true);
   updatePosition();
@@ -440,6 +526,12 @@ chordWindowInput.onchange = () => {
     saveSettings();
     session?.setChordWindowMs(value);
   }
+};
+
+tempoRange.oninput = () => {
+  settings.tempoPct = Number(tempoRange.value);
+  tempoValue.textContent = `${settings.tempoPct}%`;
+  saveSettings();
 };
 
 zoomRange.oninput = () => {
@@ -477,7 +569,7 @@ function handleEvent(e: MidiEvent): void {
     renderHeld();
     keyStrip.setPressed(e.note, true);
     log.add(`note on   ${noteName(e.note).padEnd(4)} midi ${e.note}  vel ${e.velocity}  ch ${e.channel}`, "on");
-    if (session && !session.finished) apply(session.noteOn(e.note, performance.now()), true);
+    if (session && !session.finished && !player.playing) apply(session.noteOn(e.note, performance.now()), true);
   } else if (e.kind === "noteOff") {
     held.delete(e.note);
     renderHeld();
@@ -599,5 +691,10 @@ initMidi();
 
 if (import.meta.env.DEV) {
   // Debug handle for poking at the score from the console.
-  (window as unknown as Record<string, unknown>).__pt = { score, loop, getSession: () => session };
+  (window as unknown as Record<string, unknown>).__pt = {
+    score,
+    loop,
+    getSession: () => session,
+    handleEvent,
+  };
 }
